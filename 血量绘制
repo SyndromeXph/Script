@@ -1,0 +1,364 @@
+--// Written By SpookzWasHere 
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+-- Constants
+local BAR_WIDTH = 80
+local BAR_HEIGHT = 8
+local BAR_PADDING = 2
+local TEXT_PADDING = 14
+local MAX_DISPLAY_DISTANCE = 100
+local FADE_START_DISTANCE = 80
+local COLOR_TRANSITION_TIME = 0.3
+local FADE_UPDATE_INTERVAL = 0.1
+local DEATH_FADE_TIME = 0.5
+
+-- Color States with Gradients
+local COLORS = {
+    GREEN = {
+        Start = Color3.fromRGB(40, 182, 44),
+        Mid = Color3.fromRGB(96, 255, 79),
+        End = Color3.fromRGB(40, 182, 44)
+    },
+    ORANGE = {
+        Start = Color3.fromRGB(226, 155, 37),
+        Mid = Color3.fromRGB(255, 186, 59),
+        End = Color3.fromRGB(226, 155, 37)
+    },
+    RED = {
+        Start = Color3.fromRGB(201, 42, 42),
+        Mid = Color3.fromRGB(255, 71, 71),
+        End = Color3.fromRGB(201, 42, 42)
+    }
+}
+
+-- Helper function to create color sequence
+local function createColorSequence(colorState)
+    return ColorSequence.new({
+        ColorSequenceKeypoint.new(0, colorState.Start),
+        ColorSequenceKeypoint.new(0.5, colorState.Mid),
+        ColorSequenceKeypoint.new(1, colorState.End)
+    })
+end
+
+local function createHealthBar(player)
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    local head = character:WaitForChild("Head")
+    local camera = workspace.CurrentCamera
+    
+    -- Create the main GUI
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Name = "HealthBar"
+    billboardGui.AlwaysOnTop = true
+    billboardGui.SizeOffset = Vector2.new(0, 0.5)
+    billboardGui.ExtentsOffset = Vector3.new(0, 2.5, 0)
+    billboardGui.Size = UDim2.new(0, BAR_WIDTH + (BAR_PADDING * 2), 0, BAR_HEIGHT + TEXT_PADDING + (BAR_PADDING * 2))
+    billboardGui.Adornee = head
+    billboardGui.MaxDistance = MAX_DISPLAY_DISTANCE
+    billboardGui.ClipsDescendants = true
+    billboardGui.Active = true
+    
+    -- Create main container
+    local mainContainer = Instance.new("Frame")
+    mainContainer.Name = "MainContainer"
+    mainContainer.Size = UDim2.new(1, 0, 0, BAR_HEIGHT + (BAR_PADDING * 2))
+    mainContainer.Position = UDim2.new(0, 0, 0, TEXT_PADDING)
+    mainContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    mainContainer.BorderSizePixel = 0
+    mainContainer.Parent = billboardGui
+    
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 3)
+    mainCorner.Parent = mainContainer
+    
+    -- Create background container
+    local backgroundContainer = Instance.new("Frame")
+    backgroundContainer.Name = "BackgroundContainer"
+    backgroundContainer.Size = UDim2.new(1, -4, 1, -4)
+    backgroundContainer.Position = UDim2.new(0, 2, 0, 2)
+    backgroundContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    backgroundContainer.BorderSizePixel = 0
+    backgroundContainer.Parent = mainContainer
+    
+    local backgroundCorner = Instance.new("UICorner")
+    backgroundCorner.CornerRadius = UDim.new(0, 2)
+    backgroundCorner.Parent = backgroundContainer
+    
+    -- Create background gradient
+    local backgroundGradient = Instance.new("UIGradient")
+    backgroundGradient.Rotation = 90
+    backgroundGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 200, 200))
+    })
+    backgroundGradient.Parent = backgroundContainer
+    
+    -- Create health fill container
+    local fillContainer = Instance.new("Frame")
+    fillContainer.Name = "FillContainer"
+    fillContainer.Size = UDim2.new(1, -4, 1, -4)
+    fillContainer.Position = UDim2.new(0, 2, 0, 2)
+    fillContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    fillContainer.BorderSizePixel = 0
+    fillContainer.ClipsDescendants = true
+    fillContainer.Parent = backgroundContainer
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 2)
+    fillCorner.Parent = fillContainer
+    
+    -- Create main health fill
+    local healthFill = Instance.new("Frame")
+    healthFill.Name = "HealthFill"
+    healthFill.Size = UDim2.new(1, 0, 1, 0)
+    healthFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    healthFill.BorderSizePixel = 0
+    healthFill.Parent = fillContainer
+    
+    local healthCorner = Instance.new("UICorner")
+    healthCorner.CornerRadius = UDim.new(0, 2)
+    healthCorner.Parent = healthFill
+    
+    -- Create main gradient
+    local healthGradient = Instance.new("UIGradient")
+    healthGradient.Color = createColorSequence(COLORS.GREEN)
+    healthGradient.Parent = healthFill
+    
+    -- Create transition layer
+    local transitionLayer = Instance.new("Frame")
+    transitionLayer.Name = "TransitionLayer"
+    transitionLayer.Size = UDim2.new(1, 0, 1, 0)
+    transitionLayer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    transitionLayer.BorderSizePixel = 0
+    transitionLayer.BackgroundTransparency = 1
+    transitionLayer.Parent = fillContainer
+    
+    local transitionCorner = Instance.new("UICorner")
+    transitionCorner.CornerRadius = UDim.new(0, 2)
+    transitionCorner.Parent = transitionLayer
+    
+    -- Create transition gradient
+    local transitionGradient = Instance.new("UIGradient")
+    transitionGradient.Color = createColorSequence(COLORS.GREEN)
+    transitionGradient.Parent = transitionLayer
+    
+    -- Create shine effect
+    local shine = Instance.new("Frame")
+    shine.Name = "Shine"
+    shine.Size = UDim2.new(1, 0, 0, 1)
+    shine.Position = UDim2.new(0, 0, 0, 1)
+    shine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    shine.BackgroundTransparency = 0.8
+    shine.BorderSizePixel = 0
+    shine.Parent = healthFill
+    
+    -- Create percentage text
+    local percentText = Instance.new("TextLabel")
+    percentText.Name = "PercentText"
+    percentText.Size = UDim2.new(1, 0, 0, TEXT_PADDING)
+    percentText.Position = UDim2.new(0, 0, 0, 0)
+    percentText.BackgroundTransparency = 1
+    percentText.Font = Enum.Font.GothamBold
+    percentText.TextColor3 = Color3.new(1, 1, 1)
+    percentText.TextSize = 11
+    percentText.Text = "100%"
+    percentText.TextStrokeTransparency = 0.5
+    percentText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    percentText.Parent = billboardGui
+    
+    -- Track states
+    local currentColorState = COLORS.GREEN
+    local isDestroying = false
+    
+    -- Create transparency elements table
+    local transparencyElements = {
+        {Object = mainContainer, Property = "BackgroundTransparency"},
+        {Object = backgroundContainer, Property = "BackgroundTransparency"},
+        {Object = fillContainer, Property = "BackgroundTransparency"},
+        {Object = healthFill, Property = "BackgroundTransparency"},
+        {Object = transitionLayer, Property = "BackgroundTransparency"},
+        {Object = shine, Property = "BackgroundTransparency", Offset = 0.8},
+        {Object = percentText, Properties = {
+            {Name = "TextTransparency"},
+            {Name = "TextStrokeTransparency", Offset = 0.5}
+        }}
+    }
+    
+    -- Update transparencies function
+    local function updateTransparencies(transparency)
+        if isDestroying then return end
+        
+        for _, element in ipairs(transparencyElements) do
+            if element.Object then
+                if element.Properties then
+                    for _, prop in ipairs(element.Properties) do
+                        local finalTransparency = transparency + (prop.Offset or 0)
+                        element.Object[prop.Name] = math.clamp(finalTransparency, 0, 1)
+                    end
+                else
+                    local finalTransparency = transparency + (element.Offset or 0)
+                    element.Object[element.Property] = math.clamp(finalTransparency, 0, 1)
+                end
+            end
+        end
+    end
+    
+    -- Update health bar function
+    local function updateHealthBar()
+        if isDestroying then return end
+        
+        local health = humanoid.Health
+        local maxHealth = humanoid.MaxHealth
+        local percentage = health / maxHealth
+        
+        -- Determine target color state
+        local targetColorState
+        if percentage <= 0.25 then
+            targetColorState = COLORS.RED
+        elseif percentage <= 0.5 then
+            targetColorState = COLORS.ORANGE
+        else
+            targetColorState = COLORS.GREEN
+        end
+        
+        -- Color transition if needed
+        if targetColorState ~= currentColorState then
+            transitionLayer.Size = UDim2.new(percentage, 0, 1, 0)
+            transitionGradient.Color = createColorSequence(targetColorState)
+            
+            local fadeTween = TweenService:Create(transitionLayer,
+                TweenInfo.new(COLOR_TRANSITION_TIME, Enum.EasingStyle.Linear),
+                {BackgroundTransparency = 0}
+            )
+            
+            fadeTween.Completed:Connect(function()
+                healthGradient.Color = createColorSequence(targetColorState)
+                transitionLayer.BackgroundTransparency = 1
+                currentColorState = targetColorState
+            end)
+            
+            fadeTween:Play()
+        end
+        
+        -- Update health bar size
+        TweenService:Create(healthFill,
+            TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Size = UDim2.new(percentage, 0, 1, 0)}
+        ):Play()
+        
+        -- Update transition layer if visible
+        if transitionLayer.BackgroundTransparency < 1 then
+            TweenService:Create(transitionLayer,
+                TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {Size = UDim2.new(percentage, 0, 1, 0)}
+            ):Play()
+        end
+        
+        -- Update percentage text
+        percentText.Text = math.floor(percentage * 100) .. "%"
+    end
+    
+    -- Distance fade handling
+    local lastFadeUpdate = 0
+    
+    local function updateDistanceFade()
+        if isDestroying then return end
+        
+        local now = time()
+        if now - lastFadeUpdate < FADE_UPDATE_INTERVAL then return end
+        lastFadeUpdate = now
+        
+        local distance = (head.Position - camera.CFrame.Position).Magnitude
+        local transparency = 0
+        
+        if distance >= MAX_DISPLAY_DISTANCE then
+            transparency = 1
+        elseif distance >= FADE_START_DISTANCE then
+            transparency = (distance - FADE_START_DISTANCE) / (MAX_DISPLAY_DISTANCE - FADE_START_DISTANCE)
+        end
+        
+        local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad)
+        local dummy = Instance.new("NumberValue")
+        dummy.Value = tonumber(mainContainer.BackgroundTransparency)
+        
+        local tween = TweenService:Create(dummy, tweenInfo, {Value = transparency})
+        
+        dummy.Changed:Connect(function()
+            updateTransparencies(dummy.Value)
+        end)
+        
+        tween.Completed:Connect(function()
+            dummy:Destroy()
+        end)
+        
+        tween:Play()
+    end
+    
+    -- Death handling
+    local function onDeath()
+        if isDestroying then return end
+        isDestroying = true
+        
+        local dummy = Instance.new("NumberValue")
+        dummy.Value = tonumber(mainContainer.BackgroundTransparency)
+        
+        local tweenInfo = TweenInfo.new(DEATH_FADE_TIME, Enum.EasingStyle.Quad)
+        local tween = TweenService:Create(dummy, tweenInfo, {Value = 1})
+        
+        dummy.Changed:Connect(function()
+            updateTransparencies(dummy.Value)
+        end)
+        
+        tween.Completed:Connect(function()
+            dummy:Destroy()
+            billboardGui:Destroy()
+        end)
+        
+        tween:Play()
+    end
+    
+    -- Connect events
+    humanoid.HealthChanged:Connect(updateHealthBar)
+    humanoid.Died:Connect(onDeath)
+    
+    local fadeConnection = RunService.Heartbeat:Connect(function()
+        updateDistanceFade()
+    end)
+    
+    -- Cleanup
+    billboardGui.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            fadeConnection:Disconnect()
+        end
+    end)
+    
+    -- Initial setup
+    updateHealthBar()
+    billboardGui.Parent = character
+    
+    return billboardGui
+end
+
+-- Player handling
+local function onPlayerAdded(player)
+    local function handleCharacter()
+        if player.Character then
+            local existingBar = player.Character:FindFirstChild("HealthBar")
+            if existingBar then existingBar:Destroy() end
+            createHealthBar(player)
+        end
+    end
+    
+    player.CharacterAdded:Connect(handleCharacter)
+    if player.Character then handleCharacter() end
+end
+
+-- Initialize
+for _, player in ipairs(Players:GetPlayers()) do
+    onPlayerAdded(player)
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
