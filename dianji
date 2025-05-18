@@ -1,0 +1,52 @@
+--// Written By SpookzWasHere 
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+-- Variables
+local LocalPlayer = Players.LocalPlayer
+local highlightInstances = {}
+
+-- Highlight function creation (for exploit compatibility)
+local function CreateHighlight()
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Color doesn't matter since fill is fully transparent
+    highlight.FillTransparency = 1 -- Changed to 1 for full transparency
+    highlight.OutlineColor = Color3.fromRGB(255, 0, 0) -- Red outline
+    highlight.OutlineTransparency = 0
+    return highlight
+end
+
+-- Main highlight function
+local function HighlightGenerators()
+    -- Clear existing highlights
+    for _, highlight in pairs(highlightInstances) do
+        if highlight and highlight.Parent then
+            highlight:Destroy()
+        end
+    end
+    highlightInstances = {}
+    
+    -- Find and highlight generators
+    if workspace:FindFirstChild("Map") and 
+       workspace.Map:FindFirstChild("Ingame") and 
+       workspace.Map.Ingame:FindFirstChild("Map") then
+        
+        for _, v in ipairs(workspace.Map.Ingame.Map:GetChildren()) do
+            if v.Name == "Generator" then
+                local highlight = CreateHighlight()
+                highlight.Parent = v
+                highlight.Adornee = v
+                table.insert(highlightInstances, highlight)
+            end
+        end
+    end
+end
+
+-- Update loop
+RunService.RenderStepped:Connect(function()
+    HighlightGenerators()
+end)
+
+-- Initial notification
+Print("Generator Highlighter Active!")
